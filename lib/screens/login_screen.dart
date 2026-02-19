@@ -9,17 +9,38 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-
   // Control para mostrar/ocultar la contraseña
   bool _obscureText = true;
 
-  //Crear el cerebro de la animación
+  // Crear el cerebro de la animación
   StateMachineController? _controller;
-  //SMI: State Machine Input
+  // SMI: State Machine Input
   SMIBool? _isChecking;
   SMIBool? _isHandsUp;
   SMIBool? _trigSuccess;
   SMIBool? _trigFail;
+
+  // Crear Variables para FocusNode
+  final FocusNode _emailFocusNode = FocusNode();
+  final FocusNode _passwordFocusNode = FocusNode();
+
+  // Listeners
+  @override
+  void initState() {
+    super.initState();
+    _emailFocusNode.addListener(() {
+      if (_emailFocusNode.hasFocus) {
+        // Si el campo de email tiene foco, el oso revisa
+        _isChecking?.change(true);
+      } else {
+        // Si no tiene foco, el oso deja de revisar
+        _isChecking?.change(false);
+      }
+    });
+    _passwordFocusNode.addListener(() {
+      _isHandsUp?.change(_passwordFocusNode.hasFocus);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -34,42 +55,42 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Column(
             children: [
               SizedBox(
-                width:size.width,
-                height:200,
+                width: size.width,
+                height: 200,
                 child: RiveAnimation.asset(
                   'assets/animated_login_bear.riv',
                   stateMachines: ['Login Machine'],
-                  //Al inciar la anaimación
-                  onInit: (artboard){
-                    _controller = StateMachineController.fromArtboard(artboard, 
-                    'Login Machine',
+                  // Al iniciar la animación
+                  onInit: (artboard) {
+                    _controller = StateMachineController.fromArtboard(
+                      artboard,
+                      'Login Machine',
                     );
 
-                    //Verifica que inició bien
-                    if (_controller == null);
-                    //Agrega el controlador al tablero/escenario
+                    // Verifica que inició bien
+                    if (_controller == null) {}
+                    // Agrega el controlador al tablero/escenario
                     artboard.addController(_controller!);
-                    //Vincular variables
+                    // Vincular variables
                     _isChecking = _controller!.findSMI('isChecking');
                     _isHandsUp = _controller!.findSMI('isHandsUp');
                     _trigSuccess = _controller!.findSMI('trigSuccess');
                     _trigFail = _controller!.findSMI('trigFail');
                   },
-                  )
                 ),
+              ),
               // Para separación
               const SizedBox(height: 10),
 
               TextField(
-                onChanged:(value) {
-                  if (_isHandsUp != null){
-                     _isHandsUp!.change(false);
-
-                }
-                if (_isChecking == null ) return;
-                 _isChecking!.change(true);
- 
-
+                // Asignar el FocusNode al TextField
+                focusNode: _emailFocusNode,
+                onChanged: (value) {
+                  if (_isHandsUp != null) {
+                    // _isHandsUp!.change(false);
+                  }
+                  if (_isChecking == null) return;
+                  _isChecking!.change(true);
                 },
                 decoration: InputDecoration(
                   hintText: 'Email',
@@ -84,15 +105,14 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 10),
 
               TextField(
-                onChanged:(value) {
-                  if (_isChecking != null){
-                     _isChecking!.change(false);
-
-                }
-                if (_isHandsUp == null ) return;
-                 _isHandsUp!.change(true);
- 
-
+                // Asignar el FocusNode al TextField
+                focusNode: _passwordFocusNode,
+                onChanged: (value) {
+                  if (_isChecking != null) {
+                    // _isChecking!.change(false);
+                  }
+                  if (_isHandsUp == null) return;
+                  _isHandsUp!.change(true);
                 },
                 obscureText: _obscureText,
                 decoration: InputDecoration(
@@ -105,7 +125,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           : Icons.visibility,
                     ),
                     onPressed: () {
-                      //Refresca el icono
+                      // Refresca el icono
                       setState(() {
                         _obscureText = !_obscureText;
                       });
@@ -121,5 +141,12 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _emailFocusNode.dispose();
+    _passwordFocusNode.dispose();
+    super.dispose();
   }
 }
