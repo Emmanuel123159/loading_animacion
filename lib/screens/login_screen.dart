@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:rive/rive.dart';
+import 'dart:async';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -9,47 +10,50 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  // Control para mostrar/ocultar la contraseña
   bool _obscureText = true;
-
-  // Crear el cerebro de la animación
   StateMachineController? _controller;
-  // SMI: State Machine Input
   SMIBool? _isChecking;
   SMIBool? _isHandsUp;
   SMIBool? _trigSuccess;
   SMIBool? _trigFail;
+  SMINumber? _numLook;
 
-  // Crear Variables para FocusNode
   final FocusNode _emailFocusNode = FocusNode();
   final FocusNode _passwordFocusNode = FocusNode();
+  Timer? _typingDebounce; // Corregido: nombre consistente
 
-  // Listeners
   @override
   void initState() {
     super.initState();
     _emailFocusNode.addListener(() {
       if (_emailFocusNode.hasFocus) {
-        // Si el campo de email tiene foco, el oso revisa
         _isChecking?.change(true);
       } else {
-        // Si no tiene foco, el oso deja de revisar
         _isChecking?.change(false);
+        _numLook?.value = 50.0;
       }
     });
     _passwordFocusNode.addListener(() {
       _isHandsUp?.change(_passwordFocusNode.hasFocus);
     });
   }
+//Liberar memoria/recursos
+  @override
+  void dispose() {
+    _typingDebounce?.cancel(); // Cancelar timer pendiente
+    _emailFocusNode.dispose();
+    _typingDebounce?.cancel(); // Asegurar que no quede ningún timer activo
+    _passwordFocusNode.dispose();
+
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Para obtener el tamaño de la pantalla
     final Size size = MediaQuery.of(context).size;
 
     return Scaffold(
       body: SafeArea(
-        // Evita que el contenido se superponga con el notch
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20.0),
           child: Column(
@@ -60,43 +64,49 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: RiveAnimation.asset(
                   'assets/animated_login_bear.riv',
                   stateMachines: ['Login Machine'],
-                  // Al iniciar la animación
                   onInit: (artboard) {
                     _controller = StateMachineController.fromArtboard(
                       artboard,
                       'Login Machine',
                     );
 
-                    // Verifica que inició bien
-                    if (_controller == null) {}
-                    // Agrega el controlador al tablero/escenario
+                    if (_controller == null) {
+                      debugPrint('Error: No se pudo crear el StateMachineController');
+                      return;
+                    }
+
                     artboard.addController(_controller!);
-                    // Vincular variables
                     _isChecking = _controller!.findSMI('isChecking');
                     _isHandsUp = _controller!.findSMI('isHandsUp');
                     _trigSuccess = _controller!.findSMI('trigSuccess');
                     _trigFail = _controller!.findSMI('trigFail');
+                    _numLook = _controller!.findSMI('numLook');
                   },
                 ),
               ),
-              // Para separación
               const SizedBox(height: 10),
 
               TextField(
-                // Asignar el FocusNode al TextField
                 focusNode: _emailFocusNode,
                 onChanged: (value) {
-                  if (_isHandsUp != null) {
-                    // _isHandsUp!.change(false);
-                  }
                   if (_isChecking == null) return;
                   _isChecking!.change(true);
+
+                  // Ajuste de numLook: mapea longitud (0-30) a 0-100 aproximadamente
+                  final look = (value.length/80.0*100.0).clamp(0.0, 100.0);
+                  _numLook?.value = look;
+
+                  // Debounce para quitar isChecking después de 3 segundos sin escribir
+                  _typingDebounce?.cancel();
+                  _typingDebounce = Timer(const Duration(seconds: 3), () {
+                    if (!mounted) return;
+                    _isChecking?.change(false);
+                  });
                 },
                 decoration: InputDecoration(
                   hintText: 'Email',
                   prefixIcon: const Icon(Icons.email),
                   border: OutlineInputBorder(
-                    // Para redondear los bordes
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
@@ -105,12 +115,8 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 10),
 
               TextField(
-                // Asignar el FocusNode al TextField
                 focusNode: _passwordFocusNode,
                 onChanged: (value) {
-                  if (_isChecking != null) {
-                    // _isChecking!.change(false);
-                  }
                   if (_isHandsUp == null) return;
                   _isHandsUp!.change(true);
                 },
@@ -120,12 +126,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   prefixIcon: const Icon(Icons.lock),
                   suffixIcon: IconButton(
                     icon: Icon(
-                      _obscureText
-                          ? Icons.visibility_off
-                          : Icons.visibility,
+                      _obscureText ? Icons.visibility_off : Icons.visibility,
                     ),
                     onPressed: () {
-                      // Refresca el icono
                       setState(() {
                         _obscureText = !_obscureText;
                       });
@@ -141,12 +144,5 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    _emailFocusNode.dispose();
-    _passwordFocusNode.dispose();
-    super.dispose();
   }
 }
